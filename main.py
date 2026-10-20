@@ -1649,12 +1649,9 @@ if st.session_state.page == "Home":
         )
 
         if os.path.isfile(image_path):
-            st.image(
-                image_path,
-                use_container_width=True
-            )
+            st.image(image_path, use_container_width=True)
         else:
-            st.info("Travel planner image will be available soon.")
+            st.error(f"Image not found at: {image_path}")
 
         st.markdown(
             "<p style='text-align:center; font-size:13px; "
@@ -1663,6 +1660,7 @@ if st.session_state.page == "Home":
             "</p>",
             unsafe_allow_html=True
         )
+
 
 # --- Login page ---
 elif st.session_state.page == "Login":
