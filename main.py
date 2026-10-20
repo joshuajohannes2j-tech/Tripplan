@@ -1642,14 +1642,19 @@ if st.session_state.page == "Home":
         st.write("")
         st.write("")
 
-        st.image(
-            os.path.join(
-                os.getcwd(),
-                "static",
-                "itenarary_planner.jpeg"
-            ),
-            use_container_width=True
+        image_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "static",
+            "itenarary_planner.jpeg"
         )
+
+        if os.path.isfile(image_path):
+            st.image(
+                image_path,
+                use_container_width=True
+            )
+        else:
+            st.info("Travel planner image will be available soon.")
 
         st.markdown(
             "<p style='text-align:center; font-size:13px; "
