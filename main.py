@@ -4,7 +4,7 @@ import os
 import time as time_module
 from datetime import time, date, timedelta
 from io import BytesIO
-
+from supabase import create_client
 import requests
 import pandas as pd
 import folium
@@ -20,6 +20,17 @@ from openpyxl.styles import (
 from openpyxl.utils import get_column_letter
 
 import plotly.express as px
+
+
+@st.cache_resource
+def init_supabase():
+    return create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_KEY"]
+    )
+
+
+supabase = init_supabase()
 
 
 st.set_page_config(
@@ -1662,6 +1673,7 @@ if st.session_state.page == "Home":
         )
 
 
+
 # --- Login page ---
 elif st.session_state.page == "Login":
 
@@ -1670,29 +1682,49 @@ elif st.session_state.page == "Login":
 
     with st.form("login_form"):
         email = st.text_input("Email address")
-        password = st.text_input("Password", type="password")
+        password = st.text_input(
+            "Password",
+            type="password"
+        )
         remember = st.checkbox("Remember me")
 
         submitted = st.form_submit_button("Log In")
 
         if submitted:
             if not email.strip() or not password:
-                st.warning("Please enter both your email and password.")
-
-            elif (
-                "@" not in email
-                or "." not in email.split("@")[-1]
-                or " " in email.strip()
-            ):
-                st.error("Please enter a valid email address.")
+                st.warning(
+                    "Please enter both your email and password."
+                )
 
             else:
-                st.success("Your login details look valid!")
-                st.info(
-                    "This is still a prototype. "
-                    "Your identity has not been verified because "
-                    "real authentication is not connected yet."
-                )
+                try:
+                    response = supabase.auth.sign_in_with_password({
+                        "email": email.strip(),
+                        "password": password
+                    })
+
+                    if response.user is not None:
+                        st.session_state["user"] = {
+                            "id": response.user.id,
+                            "email": response.user.email
+                        }
+                        st.session_state["logged_in"] = True
+
+                        st.success("Login successful!")
+                        go_to("Dashboard")
+
+                    else:
+                        st.error(
+                            "Login failed. Please check your details "
+                            "and try again."
+                        )
+
+                except Exception:
+                    st.error(
+                        "Login failed. Check your email and password. "
+                        "If you just signed up, make sure you confirmed "
+                        "your email first."
+                    )
 
     st.button(
         "Create an account",
@@ -1734,11 +1766,9 @@ elif st.session_state.page == "Signup":
         submitted = st.form_submit_button("Create Account")
 
         if submitted:
-            # Check for empty fields
             if not name.strip() or not email.strip() or not password or not confirm:
                 st.warning("Please fill in all fields.")
 
-            # Check email format
             elif (
                 "@" not in email
                 or "." not in email.split("@")[-1]
@@ -1746,29 +1776,58 @@ elif st.session_state.page == "Signup":
             ):
                 st.error("Please enter a valid email address.")
 
-            # Check password length
             elif len(password) < 8:
                 st.error("Your password must be at least 8 characters long.")
 
-            # Check that passwords match
             elif password != confirm:
                 st.error("Your passwords don't match.")
 
-            # Validation passed
             else:
-                st.success("All fields passed validation!")
-                st.info(
-                    "This is still a prototype. "
-                    "Your account has not been created because "
-                    "registration and secure password storage "
-                    "are not connected yet."
-                )
+                try:
+                    response = supabase.auth.sign_up({
+                        "email": email.strip(),
+                        "password": password,
+                        "options": {
+                            "data": {
+                                "full_name": name.strip()
+                            }
+                        }
+                    })
+
+                    if response.user is not None:
+                        st.success(
+                            "Your account has been created!"
+                        )
+
+                        if response.session is None:
+                            st.info(
+                                "Check your email for a confirmation link, "
+                                "then log in to TripPlan."
+                            )
+                        else:
+                            st.info(
+                                "Your account is ready. "
+                                "We'll connect your trip storage next."
+                            )
+
+                    else:
+                        st.error(
+                            "Supabase did not return a user. "
+                            "Please try again."
+                        )
+                        
+                except Exception as e:
+
+                    st.error("Signup failed.")
+
+                    st.code(str(e))
 
     st.button(
         "Already have an account? Log in",
         on_click=go_to,
         args=("Login",)
     )
+
     st.button(
         "← Back to Home",
         on_click=go_to,
